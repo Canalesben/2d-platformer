@@ -1,0 +1,157 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class PlayerScript : MonoBehaviour
+{
+    //DECLARE VARIABLES
+    private Rigidbody2D myRigidbody;
+    public Animator myAnimator;
+    public float movementSpeed;
+    private bool facingRight;
+    [SerializeField] //Whatever variables comes DIRECTLY(in the line directly below) after this, they will be able to be manipulated in the unity inspector
+    private Transform[] groundPoints;
+    public float groundRadius;
+    [SerializeField]
+    private LayerMask whatIsGround;
+    private bool isGrounded;
+    private bool jump;
+    [SerializeField]
+    private float jumpForce;
+    public bool isAlive;
+    public GameObject reset;
+    private Slider healthBar;
+    public float health = 15f; //total health
+    public float healthBurn = 5f; //health taken away per hits
+   
+    // Start is called before the first frame update
+    void Start()
+    {
+        myRigidbody = GetComponent<Rigidbody2D>();
+        myAnimator = GetComponent<Animator>();
+        facingRight = true;
+        isAlive = true;
+        reset.SetActive(false);
+        healthBar = GameObject.Find("health slider").GetComponent<Slider>();
+        healthBar.minValue = 0f;
+        healthBar.maxValue = health;
+        healthBar.value = healthBar.maxValue;
+    }
+
+    // Update is called once per frame
+    //void Update()
+    //{
+        //HandleInput(); --> dont need this because I put it into fixed update because my player would be able to jump when it was supposed to be dead, so by taking this out I removed that from happening
+    //}
+    void FixedUpdate()
+    {
+        float horizontal = Input.GetAxis("Horizontal");
+        isGrounded = IsGrounded();
+        if(isAlive == true)
+        {
+            Debug.Log(horizontal); 
+            HandleMovement(horizontal);
+            Flip(horizontal);
+            HandleInput();
+        }
+    }
+
+    //FUNCTION DEFINITIONS
+    private void HandleMovement(float horizontal)
+    {
+        if(isGrounded && jump)
+        {
+            isGrounded = false;
+            jump = false;
+            myRigidbody.AddForce(new Vector2(0, jumpForce));
+        }
+        myRigidbody.velocity = new Vector2(movementSpeed * horizontal, myRigidbody.velocity.y);
+        myAnimator.SetFloat("speed", Mathf.Abs(horizontal));
+    }
+
+    private void HandleInput()
+    {
+        if(Input.GetKeyDown(KeyCode.Space))
+        {
+            float jumpVelocity = 10f;
+            myRigidbody.velocity = Vector2.up * jumpVelocity;
+            jump = true;
+            myAnimator.SetBool("jumping", true);
+        }
+    }
+
+    private void Flip(float horizontal)
+    {
+        if(horizontal<0 && facingRight || horizontal>0 && !facingRight) //the exclamation point means not
+        {
+            facingRight = !facingRight; //resetting the bool to its opposite
+            Vector3 theScale = transform.localScale; //create a variable to access the scale component of the character
+            theScale.x *= -1; //multiplying by a negaive --> setting value of scale variable to its opposite
+            transform.localScale = theScale; //changing the scale component to the new value
+        }
+    }
+    
+    private bool IsGrounded()
+    {
+
+        if (myRigidbody.velocity.y <= 0) 
+        {
+            //if player is not moving vertically, test each of Player's groundPoints for collision with Ground
+            foreach (Transform point in groundPoints) 
+            {
+                Collider2D[] colliders = Physics2D.OverlapCircleAll (point.position, groundRadius, whatIsGround);
+                for (int i = 0; 1 < colliders.Length; i++) 
+                {
+                    if (colliders [i].gameObject != gameObject) 
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    void UpdateHealth()
+    {
+        if(health > 0)
+        {
+            health = health - healthBurn;
+            healthBar.value = health;
+        }
+        if(health <= 0)
+        {
+            Death();
+        }
+    }
+
+    public void Death()
+    {
+        myAnimator.SetBool("death", true);
+        isAlive = false;
+        reset.SetActive(true);
+        healthBar.value = 0f;
+    }
+
+
+    void OnCollisionEnter2D(Collision2D target)
+    {
+        if(target.gameObject.tag == "Ground")
+        {
+          myAnimator.SetBool("jumping", false);  
+        }
+        if(target.gameObject.tag == "deadly")
+        {
+            myAnimator.SetBool("death", true);
+            isAlive = false;
+            reset.SetActive(true);
+            health = 0;
+            UpdateHealth();
+        }
+        if(target.gameObject.tag == "damage")
+        {
+            UpdateHealth();
+        }
+    }
+}
